@@ -12,8 +12,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import io.flutter.plugin.platform.PlatformView
 
@@ -54,20 +57,53 @@ class MyVideoView(
     }
 
     private fun setUpPlayer(url: String) {
-        player =
-                ExoPlayer.Builder(context).build().also { exoPlayer ->
-                    val dataResourceFactory = DefaultHttpDataSource.Factory()
-                    val uri = Uri.Builder().encodedPath(url).build()
-                    val mediaItem = MediaItem.Builder().setUri(uri).build()
-                    val internetVideoSource =
-                            HlsMediaSource.Factory(dataResourceFactory).createMediaSource(mediaItem)
-                    playerView.player = exoPlayer
 
-                    exoPlayer.setMediaSource(internetVideoSource)
-                    exoPlayer.playWhenReady = playWhenReady
-                    exoPlayer.seekTo(currentItem, playbackPosition)
-                    exoPlayer.prepare()
+        val loadControl =
+                DefaultLoadControl.Builder()
+                        .setBufferDurationsMs(
+                                500, // Minimum buffer duration (ms)
+                                1500, // Maximum buffer duration (ms)
+                                250, // Minimum playback start buffer (ms)
+                                500 // Minimum playback resume buffer (ms)
+                        )
+                        .setPrioritizeTimeOverSizeThresholds(true) // Prioritize latency
+                        .build()
+
+        // Create a custom TrackSelector for adaptive streaming
+        val trackSelector =
+                DefaultTrackSelector(context).apply {
+                    parameters =
+                            buildUponParameters()
+                                    .setForceLowestBitrate(
+                                            false
+                                    ) // Enable adaptive bitrate streaming
+                                    .setMaxVideoSizeSd() // Optionally, limit to SD resolution if
+                                    // necessary
+                                    .build()
                 }
+
+        player =
+                ExoPlayer.Builder(context)
+                        .setTrackSelector(trackSelector)
+                        .setLoadControl(loadControl)
+                        .build()
+                        .also { exoPlayer ->
+                            val dataResourceFactory = DefaultHttpDataSource.Factory()
+                            val uri = Uri.Builder().encodedPath(url).build()
+                            val mediaItem = MediaItem.Builder().setUri(uri).build()
+                            val internetVideoSource =
+                                    HlsMediaSource.Factory(dataResourceFactory)
+                                            .createMediaSource(mediaItem)
+                            playerView.player = exoPlayer
+
+                            exoPlayer.setMediaSource(internetVideoSource)
+                            exoPlayer.setSeekParameters(
+                                    SeekParameters.CLOSEST_SYNC
+                            ) // Minimize seek delay
+                            exoPlayer.playWhenReady = playWhenReady
+                            exoPlayer.seekTo(currentItem, playbackPosition)
+                            exoPlayer.prepare()
+                        }
         hideSystemUi()
     }
 
@@ -75,7 +111,7 @@ class MyVideoView(
         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
         controller.hide(WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior = 
+        controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
