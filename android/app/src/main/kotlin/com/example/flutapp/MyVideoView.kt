@@ -61,10 +61,10 @@ class MyVideoView(
         val loadControl =
                 DefaultLoadControl.Builder()
                         .setBufferDurationsMs(
-                                100, // Minimum buffer duration (ms)
-                                1000, // Maximum buffer duration (ms)
-                                50, // Minimum playback start buffer (ms)
-                                100 // Minimum playback resume buffer (ms)
+                                500, // Minimum buffer duration (ms)
+                                1500, // Maximum buffer duration (ms)
+                                250, // Minimum playback start buffer (ms)
+                                500 // Minimum playback resume buffer (ms)
                         )
                         .setPrioritizeTimeOverSizeThresholds(true) // Prioritize latency
                         .build()
